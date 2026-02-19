@@ -372,13 +372,236 @@ const agent = createCodingAgentFromConfig({
 
 ## 🚧 Roadmap
 
-- [ ] Refatorar CLI em Rust (performance máxima)
-- [ ] Adicionar dashboard web
-- [ ] Integração com Redis/Bull para queue
-- [ ] Webhooks para notificações
-- [ ] Suporte a múltiplos projetos
-- [ ] Configuração via arquivo TOML/YAML
-- [x] Interface CodingAgent para troca de CLIs
+> **Nota Importante:** Kai Delegator está atualmente acoplado ao projeto JT-Kill e ao banco de dados Prisma. O roadmap abaixo visa tornar Kai Delegator um projeto **independente e open source** no futuro, mas isso não afeta sua funcionalidade atual para a jogada.
+
+### Visão Geral
+
+**Objetivo:** Transformar Kai Delegator em uma CLI instalável e open source que possa ser usada por qualquer pessoa/comunidade, independente do JT-Kill.
+
+**Arquitetura Futura:**
+```
+┌──────────────────────────────────┐
+│     Kai Delegator CLI         │  ← Projeto Open Source
+│  ┌─────────────────────────┐    │
+│  │   TaskQueue Interface  │    │  ← Abstração
+│  └─────────────────────────┘    │
+│         ↑                         │
+│    ┌────┴────┐                 │
+│    │          │                 │
+│  ┌───┴───┐  ┌───┴───┐       │
+│  │Prisma  │  │ JSON   │       │  ← Implementações
+│  │Task    │  │Task    │       │     da TaskQueue
+│  │Queue   │  │Queue   │       │
+│  └─────────┘  └─────────┘       │
+│                              │
+└──────────────────────────────────────┘
+```
+
+### 📅 Versões Planejadas
+
+#### v1.0.0 - Atual (Stable) ✅
+**Status:** Produção - rodando para a jogada
+**Objetivo:** Delegação automática de tasks com Kilo CLI
+**Dependências:**
+- JT-Kill (banco Prisma + KaiCommand table)
+- GitHub Token (para PR creation)
+
+**Features:**
+- ✅ Delegação automática de tasks
+- ✅ Health check de processos (5 min)
+- ✅ Prevenção de duplicatas de KaiCommands
+- ✅ Structured logging (JSON, ISO8601)
+- ✅ Alternância GLM-5 Free ↔ Paid
+- ✅ Interface abstrata CodingAgent
+- ✅ 157 testes unitários
+- ✅ Quality gates (typecheck, lint, build)
+- ✅ Reports automáticos via Telegram
+
+#### v2.0.0 - Independente e TypeScript (Planejado: 3-6 meses)
+**Status:** Roadmap
+**Objetivo:** Tornar Kai Delegator independente do JT-Kill e migrar para TypeScript
+**Mudanças principais:**
+- 🔄 **Migrar kai-delegator.js → kai-delegator.ts**
+- 🔄 **Remover dependência do JT-Kill**
+- 🔄 **Criar interface TaskQueue abstrata**
+- 🔄 **Implementações alternativas da TaskQueue:**
+  - JSONTaskQueue (modo standalone, sem banco)
+  - SQLiteTaskQueue (modo distribuído, banco local)
+  - APITaskQueue (modo SaaS, REST API)
+- ✅ **Type safety completo** com TypeScript
+- ✅ **Config centralizada** (arquivo TOML/YAML)
+
+**Arquitetura:**
+```
+kai-delegator/
+├── src/
+│   ├── index.ts                 # Entry point (TypeScript)
+│   ├── task-queue/
+│   │   ├── interface.ts        # TaskQueue interface
+│   │   ├── prisma.ts          # Implementação JT-Kill (client)
+│   │   ├── json.ts            # Implementação JSON (standalone)
+│   │   └── sqlite.ts          # Implementação SQLite (opcional)
+│   ├── coding-agents/
+│   │   ├── interface.ts        # CodingAgent interface
+│   │   ├── kilo.ts            # Kilo CLI
+│   │   └── factory.ts          # Agent factory
+│   └── health-monitor.ts
+├── dist/                        # Compilado
+├── config/
+│   └── kai-delegator.toml  # Config centralizada
+└── package.json
+```
+
+**TaskQueue Interface:**
+```typescript
+interface TaskQueue {
+  // Buscar tasks PENDING
+  getPending(maxCount: number): Promise<TaskInfo[]>;
+  
+  // Marcar task como RUNNING
+  markRunning(taskId: string): Promise<void>;
+  
+  // Marcar task como COMPLETED
+  markCompleted(taskId: string, result: TaskResult): Promise<void>;
+  
+  // Marcar task como FAILED
+  markFailed(taskId: string, error: Error): Promise<void>;
+  
+  // Verificar se task já existe
+  checkExists(taskId: string): Promise<boolean>;
+}
+```
+
+#### v3.0.0 - CLI Instalável e SaaS (Planejado: 6-12 meses)
+**Status:** Roadmap
+**Objetivo:** Tornar Kai Delegator uma CLI instalável (npm install) e opcionalmente SaaS
+**Mudanças principais:**
+- 📦 **Publicar no npm** (`npm install kai-delegator`)
+- 🎨 **Dashboard web** (React/Next.js)
+- 🌐 **API REST** para gerenciar tasks
+- 🔔 **Webhooks** para notificações
+- 🌍 **Distribuído** (multi-server)
+- 📊 **Analytics** e métricas
+- 🔐 **Autenticação** (OAuth, API keys)
+- 💾 **Multi-provider** (GitHub, GitLab, Bitbucket)
+
+**Arquitetura SaaS:**
+```
+┌──────────────────────────────────┐
+│      Kai Delegator SaaS       │
+│  ┌─────────────────────────┐    │
+│  │    Dashboard Web      │    │
+│  └─────────────────────────┘    │
+│  ┌─────────────────────────┐    │
+│  │      API REST        │    │
+│  └─────────────────────────┘    │
+│         ↑                         │
+│    ┌────┴────┐                 │
+│    │          │                 │
+│  ┌───┴───┐  ┌───┴───┐       │
+│  │Task    │  │Analytics│       │
+│  │Service │  │Service  │       │
+│  └─────────┘  └─────────┘       │
+│                              │
+└──────────────────────────────────────┘
+```
+
+### 🎯 Features Futuras
+
+#### Short Term (1-3 meses)
+- [ ] **CLI Commands**: `kai list`, `kai run TASK-1`, `kai status`
+- [ ] **Config file**: `.kai-delegator.yml` com todas as configs
+- [ ] **Multi-CLIs**: Suporte oficial para Bolt.new, Codeium, Aider
+- [ ] **Retry configuration**: Configurar retries por tipo de erro
+- [ ] **Better templates**: Templates de PR customizáveis
+
+#### Medium Term (3-6 meses)
+- [ ] **Dashboard Web**: Interface visual para monitorar tasks
+- [ ] **Real-time updates**: WebSocket para status em tempo real
+- [ ] **Analytics**: Métricas de uso, tempo médio de execução, etc.
+- [ ] **CLI Plugins**: Sistema de plugins para extensões
+- [ ] **CI/CD Integration**: Integração nativa com GitHub Actions, GitLab CI
+
+#### Long Term (6-12 meses)
+- [ ] **Distributed Queue**: Redis/Bull para escalabilidade horizontal
+- [ ] **Multi-provider**: GitHub, GitLab, Bitbucket, Azure DevOps
+- [ ] **SaaS Version**: Versão hospedada com autenticação
+- [ ] **Mobile App**: App para monitorar tasks no celular
+- [ ] **AI-powered routing**: ML para otimizar alocação de tasks
+
+### 🚀 Open Source Timeline
+
+#### Fase 1: Preparação (1-2 semanas)
+- [x] Stabilizar versão atual (v1.0.0)
+- [ ] Documentar dependências externas
+- [ ] Criar issues no GitHub para cada feature do roadmap
+- [ ] Adicionar CONTRIBUTING.md
+- [ ] Criar LICENSE (MIT)
+
+#### Fase 2: Desacoplamento (3-6 meses)
+- [ ] Criar TaskQueue interface
+- [ ] Implementar JSONTaskQueue (standalone)
+- [ ] Migrar kai-delegator.js → TypeScript
+- [ ] Remover dependência do JT-Kill
+- [ ] Testes E2E com múltiplas TaskQueues
+
+#### Fase 3: Open Source Launch (1 semana)
+- [ ] Publicar no npm
+- [ ] Anunciar em Reddit, Hacker News, Twitter
+- [ ] Criar vídeo de demo (5-10 min)
+- [ ] Criar screenshots e GIFs
+- [ ] Adicionar badges (npm downloads, GitHub stars, etc.)
+
+#### Fase 4: Comunidade (contínuo)
+- [ ] Review e merge de PRs da comunidade
+- [ ] Responder issues e dúvidas
+- [ ] Adicionar features populares da comunidade
+- [ ] Manter roadmap atualizado
+
+### 📊 Status das Features
+
+| Feature | v1.0 | v2.0 | v3.0 |
+|---------|--------|--------|--------|
+| Delegação automática | ✅ | ✅ | ✅ |
+| Health check processos | ✅ | ✅ | ✅ |
+| Prevenção duplicatas | ✅ | ✅ | ✅ |
+| Structured logging | ✅ | ✅ | ✅ |
+| CodingAgent interface | ✅ | ✅ | ✅ |
+| TypeScript completo | ❌ | ✅ | ✅ |
+| TaskQueue abstrata | ❌ | ✅ | ✅ |
+| Independente do JT-Kill | ❌ | ✅ | ✅ |
+| CLI instalável | ❌ | 🚧 | ✅ |
+| Dashboard web | ❌ | ❌ | ✅ |
+| API REST | ❌ | ❌ | ✅ |
+| Webhooks | ❌ | ❌ | ✅ |
+| Distribuído | ❌ | ❌ | ✅ |
+
+### 🤝 Contribuindo
+
+Se você quer contribuir com o roadmap:
+
+**Para v2.0 (Desacoplamento):**
+1. Implementar JSONTaskQueue em `src/task-queue/json.ts`
+2. Adicionar testes E2E em `tests/e2e/task-queue.test.ts`
+3. Migrar `kai-delegator.js` para TypeScript
+4. Criar PR com title: `feat(v2): Add JSONTaskQueue`
+
+**Para v3.0 (CLI Instalável):**
+1. Criar CLI commands em `src/cli/`
+2. Implementar dashboard em `src/dashboard/`
+3. Adicionar API em `src/api/`
+4. Criar PR com title: `feat(v3): Add CLI commands and dashboard`
+
+### 🔮 Timeline Estimada
+
+- **v1.0.0**: ✅ Atual (produção)
+- **v2.0.0**: Q2 2026 (3-6 meses)
+- **v3.0.0**: Q3/Q4 2026 (6-12 meses)
+
+---
+
+_Última atualização: 2024-02-19_
+
 
 ## 📝 Notas
 
