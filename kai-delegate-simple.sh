@@ -40,16 +40,10 @@ TASK_READABLE_ID=$(echo "$TASK_INFO" | grep -oP 'readableId:\K.*')
 TASK_TITLE=$(echo "$TASK_INFO" | grep -oP 'title:\K.*')
 PROJECT_KEY=$(echo "$TASK_INFO" | grep -oP 'projectKey:\K.*')
 TASK_KEY_FULL=$(echo "$TASK_INFO" | grep -oP 'taskKey:\K.*')
+REPO_URL=$(echo "$TASK_INFO" | grep -oP 'githubRepoUrl:\K.*')
 
 echo -e "${YELLOW}Project: ${PROJECT_KEY}${NC}"
 echo -e "${YELLOW}Task: ${TASK_READABLE_ID}${NC}"
-
-# URLs dos repos (do banco)
-REPO_URLS="AGQ=https://github.com/Guilherme11gr/agenda-aqui
-LOJINHA=https://github.com/Guilherme11gr/american-cannabis-site
-JKILL=https://github.com/guilherme11gr/jt-kill"
-
-REPO_URL=$(echo "$REPO_URLS" | grep "^${PROJECT_KEY}=" | cut -d'=' -f2)
 
 if [ -z "$REPO_URL" ]; then
   echo -e "${YELLOW}⚠️  Repo não encontrado para ${PROJECT_KEY}${NC}"
