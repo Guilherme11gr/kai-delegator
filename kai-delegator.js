@@ -1,9 +1,10 @@
 const path = require('path');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const fs = require('fs');
 const dotenv = require('dotenv');
 const { Octokit } = require('@octokit/rest');
 const logger = require('./kai-logger');
+const { createProcessHealthMonitor } = require('./dist/process-health-monitor');
 
 const envPath = path.join('/workspace/repos/jt-kill/.env.local');
 dotenv.config({ path: envPath });
@@ -88,6 +89,25 @@ let isShuttingDown = false;
 let runningCountCache = { count: 0, timestamp: 0 };
 let configCache = null;
 
+const healthMonitor = createProcessHealthMonitor({
+  checkIntervalMs: 5 * 60 * 1000,
+  normalTimeoutMs: 35 * 60 * 1000,
+  complexTimeoutMs: 25 * 60 * 1000,
+});
+
+healthMonitor.setOnKillCallback(async (commandId, reason) => {
+  logger.warn(`Health monitor killing process: ${commandId} - ${reason}`);
+  try {
+    await updateCommandStatus(commandId, {
+      status: STATUS.FAILED,
+      output: `Process killed by health monitor: ${reason}`,
+      resultSummary: 'FAILED - Process stuck or unresponsive',
+    });
+  } catch (err) {
+    logger.error(`Failed to update status for killed process ${commandId}: ${err.message}`);
+  }
+});
+
 let octokitInstance = null;
 function getOctokit() {
   if (!octokitInstance) {
@@ -141,6 +161,24 @@ async function getRunningCount() {
   return count;
 }
 
+const BLOCKING_STATUSES = [STATUS.COMPLETED, STATUS.RUNNING];
+const REUSABLE_STATUSES = [STATUS.FAILED, STATUS.PENDING];
+
+async function checkExistingKaiCommand(taskId) {
+  const existing = await withRetry(
+    () => prisma.kaiCommand.findFirst({
+      where: {
+        taskId,
+        status: { in: BLOCKING_STATUSES }
+      },
+      select: { id: true, status: true }
+    }),
+    { operationName: `Verificar KaiCommand existente para task ${taskId}`, silent: true }
+  );
+  
+  return existing;
+}
+
 async function fetchPendingCommands() {
   try {
     const runningCount = await getRunningCount();
@@ -177,7 +215,19 @@ async function fetchPendingCommands() {
 
     if (commands.length === 0) return { commands: [], runningCount, slotsAvailable };
 
-    const prioritized = commands.sort((a, b) => {
+    const filteredCommands = [];
+    for (const cmd of commands) {
+      const existing = await checkExistingKaiCommand(cmd.taskId);
+      if (existing) {
+        logger.info(`Task ${cmd.taskId}: KaiCommand ${existing.status} já existe, pulando duplicata`);
+        continue;
+      }
+      filteredCommands.push(cmd);
+    }
+
+    if (filteredCommands.length === 0) return { commands: [], runningCount, slotsAvailable };
+
+    const prioritized = filteredCommands.sort((a, b) => {
       const aIsSimple = isSimpleTask(a.task.title);
       const bIsSimple = isSimpleTask(b.task.title);
       if (aIsSimple !== bIsSimple) return aIsSimple ? -1 : 1;
@@ -301,14 +351,50 @@ function shouldAutoRetry(output, resultSummary) {
   return isTransient && !isBuildError;
 }
 
-function execCommand(scriptPath, taskKey) {
+function execCommand(scriptPath, taskKey, commandId, taskTitle) {
   return new Promise((resolve) => {
-    exec(`bash ${scriptPath} ${taskKey}`, {
+    const childProcess = spawn('bash', [scriptPath, taskKey], {
       cwd: '/workspace/main',
-      timeout: CONFIG.EXEC_TIMEOUT_MS,
-      env: { ...process.env, PATH: process.env.PATH }
-    }, (error, stdout, stderr) => {
-      resolve({ stdout, stderr, error });
+      env: { ...process.env, PATH: process.env.PATH },
+      detached: false,
+    });
+
+    const pid = childProcess.pid;
+    if (pid) {
+      healthMonitor.registerProcess(pid, taskKey, commandId, taskTitle);
+    }
+
+    let stdout = '';
+    let stderr = '';
+    let timeoutId = null;
+
+    timeoutId = setTimeout(() => {
+      childProcess.kill('SIGKILL');
+      stderr += '\nProcess killed due to timeout';
+    }, CONFIG.EXEC_TIMEOUT_MS);
+
+    childProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    childProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    childProcess.on('close', (code) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      healthMonitor.unregisterProcess(commandId);
+      resolve({
+        stdout,
+        stderr,
+        error: code !== 0 ? new Error(`Process exited with code ${code}`) : null,
+      });
+    });
+
+    childProcess.on('error', (err) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      healthMonitor.unregisterProcess(commandId);
+      resolve({ stdout, stderr, error: err });
     });
   });
 }
@@ -327,7 +413,7 @@ async function executeDelegation(command) {
     await updateCommandStatus(commandId, { status: STATUS.RUNNING, branchName });
     await alternateModel();
 
-    const { stdout, stderr, error: execError } = await execCommand(CONFIG.SCRIPT_PATH, taskKey);
+    const { stdout, stderr, error: execError } = await execCommand(CONFIG.SCRIPT_PATH, taskKey, commandId, task.title);
     
     const historyPath = path.join('/workspace/main/.kai-history', `${taskKey}.txt`);
     let output = '';
@@ -422,6 +508,7 @@ async function executeDelegation(command) {
 
 async function main() {
   logger.info('Kai Delegator iniciado (optimized)');
+  healthMonitor.start();
 
   while (!isShuttingDown) {
     try {
@@ -457,6 +544,7 @@ async function gracefulShutdown(signal) {
   isShuttingDown = true;
   
   logger.info(`Recebido ${signal}, encerrando...`);
+  healthMonitor.stop();
   
   if (activeDelegations.size > 0) {
     try {
