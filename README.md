@@ -190,6 +190,20 @@ Alterna entre GLM-5 Free e GLM-5 Paid no arquivo `~/.config/kilo/opencode.json`.
 
 ---
 
+## 🛡️ Proteção Contra Falhas Graves
+
+O `kai-delegate-simple.sh` tem **3 camadas de proteção** para evitar commits diretos na main:
+
+1. **Branch kai/ criada imediatamente** após checkout/pull
+2. **Verificação de branch** antes de executar Kilo CLI (garante que estamos na kai/)
+3. **Verificação de mudanças** após Kilo CLI (garante que há mudanças únicas vs main)
+
+Se qualquer verificação falhar, o script **para com erro claro** e a task é marcada como FAILED (para retry).
+
+**Isto previne o bug onde o Kilo CLI commitava mudanças diretamente na main, causando mudanças sem PR em produção.**
+
+---
+
 ## 🔍 Sistema de Logs
 
 ### Kai Logger (`kai-logger.js`)
