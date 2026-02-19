@@ -3,6 +3,7 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const dotenv = require('dotenv');
 const { Octokit } = require('@octokit/rest');
+const logger = require('./kai-logger');
 
 const envPath = path.join('/workspace/repos/jt-kill/.env.local');
 dotenv.config({ path: envPath });
@@ -85,8 +86,6 @@ let activeDelegations = new Map();
 let modelAlternator = 0;
 let isShuttingDown = false;
 let runningCountCache = { count: 0, timestamp: 0 };
-let logBuffer = [];
-let lastLogFlush = 0;
 let configCache = null;
 
 let octokitInstance = null;
@@ -95,30 +94,6 @@ function getOctokit() {
     octokitInstance = new Octokit({ auth: getGitHubToken() });
   }
   return octokitInstance;
-}
-
-function flushLogs() {
-  if (logBuffer.length === 0) return;
-  const now = Date.now();
-  if (logBuffer.length >= CONFIG.LOG_BUFFER_SIZE || (now - lastLogFlush) > 5000) {
-    for (const log of logBuffer) {
-      console.log(log);
-    }
-    logBuffer = [];
-    lastLogFlush = now;
-  }
-}
-
-function log(message, level = 'info') {
-  const prefix = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : '✅';
-  const logLine = `${new Date().toISOString()} ${prefix} Kai Delegator: ${message}`;
-  
-  if (level !== 'info' || message.includes('Falha') || message.includes('Erro') || message.includes('timeout')) {
-    console.log(logLine);
-  } else {
-    logBuffer.push(logLine);
-    flushLogs();
-  }
 }
 
 function delay(ms) {
@@ -135,7 +110,7 @@ async function withRetry(fn, options = {}) {
     } catch (error) {
       lastError = error;
       if (!silent && attempt === maxRetries) {
-        log(`${operationName} falhou: ${error.message}`, 'warn');
+        logger.warn(`${operationName} falhou: ${error.message}`);
       }
       if (attempt < maxRetries) {
         await delay(delayMs * attempt);
@@ -184,11 +159,11 @@ async function fetchPendingCommands() {
           task: {
             select: {
               id: true,
-              readableId: true,
               localId: true,
               title: true,
               project: {
                 select: {
+                  key: true,
                   githubRepoUrl: true
                 }
               }
@@ -212,7 +187,7 @@ async function fetchPendingCommands() {
     const selected = prioritized.slice(0, slotsAvailable);
     return { commands: selected, runningCount, slotsAvailable };
   } catch (error) {
-    log(`Erro ao buscar comandos: ${error.message}`, 'error');
+    logger.error(`Erro ao buscar comandos: ${error.message}`);
     return { commands: [], runningCount: CONFIG.MAX_CONCURRENT, slotsAvailable: 0 };
   }
 }
@@ -238,9 +213,9 @@ async function alternateModel() {
       configCache = config;
     }
 
-    log(`Modelo: ${modelName}`);
+    logger.info(`Modelo: ${modelName}`);
   } catch (error) {
-    log(`Erro ao alternar modelo: ${error.message}`, 'error');
+    logger.error(`Erro ao alternar modelo: ${error.message}`);
   }
 }
 
@@ -269,7 +244,7 @@ function extractKaiDescription(output) {
 async function createPullRequest(repo, branchName, taskTitle, taskReadableId, kaiDescription) {
   const match = repo.match(/github\.com\/([^/]+)\/([^/]+)/);
   if (!match) {
-    log(`URL do repo inválida: ${repo}`, 'error');
+    logger.error(`URL do repo inválida: ${repo}`);
     return null;
   }
 
@@ -295,10 +270,10 @@ ${kaiDescription || 'Implementação automatizada via Kilo CLI.'}
       body: prBody
     });
 
-    log(`PR criado: ${response.data.html_url}`);
+    logger.info(`PR criado: ${response.data.html_url}`);
     return response.data.html_url;
   } catch (error) {
-    log(`Erro ao criar PR: ${error.message}`, 'error');
+    logger.error(`Erro ao criar PR: ${error.message}`);
     return null;
   }
 }
@@ -345,7 +320,7 @@ function truncateOutput(output, maxSize = CONFIG.MAX_OUTPUT_SIZE) {
 
 async function executeDelegation(command) {
   const { taskId, id: commandId, task } = command;
-  const taskKey = task.readableId || `JKILL-${task.localId || taskId.substring(0, 8)}`;
+  const taskKey = task.project?.key ? `${task.project.key}-${task.localId}` : `JKILL-${task.localId || taskId.substring(0, 8)}`;
   const branchName = `kai/${taskKey}`;
 
   try {
@@ -426,7 +401,7 @@ async function executeDelegation(command) {
     }
 
   } catch (error) {
-    log(`Erro ao executar delegação ${taskKey}: ${error.message}`, 'error');
+    logger.error(`Erro ao executar delegação ${taskKey}: ${error.message}`);
     try {
       await updateCommandStatus(commandId, {
         status: STATUS.FAILED,
@@ -446,7 +421,7 @@ async function executeDelegation(command) {
 }
 
 async function main() {
-  log('Kai Delegator iniciado (optimized)');
+  logger.info('Kai Delegator iniciado (optimized)');
 
   while (!isShuttingDown) {
     try {
@@ -467,21 +442,21 @@ async function main() {
       }
 
     } catch (error) {
-      log(`Erro no loop: ${error.message}`, 'error');
+      logger.error(`Erro no loop: ${error.message}`);
       await delay(CONFIG.DB_RETRY_DELAY_MS);
     }
 
     await delay(CONFIG.POLL_INTERVAL_MS);
   }
   
-  flushLogs();
+  logger.flush();
 }
 
 async function gracefulShutdown(signal) {
   if (isShuttingDown) return;
   isShuttingDown = true;
   
-  log(`Recebido ${signal}, encerrando...`);
+  logger.info(`Recebido ${signal}, encerrando...`);
   
   if (activeDelegations.size > 0) {
     try {
@@ -496,7 +471,7 @@ async function gracefulShutdown(signal) {
     await prisma.$disconnect();
   } catch {}
   
-  flushLogs();
+  logger.flush();
   process.exit(0);
 }
 
@@ -504,6 +479,6 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 main().catch(error => {
-  log(`Erro fatal: ${error.message}`, 'error');
+  logger.error(`Erro fatal: ${error.message}`);
   process.exit(1);
 });
