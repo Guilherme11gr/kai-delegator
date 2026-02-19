@@ -68,6 +68,14 @@ nohup node kai-delegator.js > kai-delegator.log 2>&1 &
 node kai-status-report.js
 ```
 
+### Analisar Logs
+
+```bash
+node kai-log-analyzer.js --tail=50
+node kai-log-analyzer.js --tail=100 --level=ERROR
+node kai-log-analyzer.js --filter="timeout"
+```
+
 ### Limpar Tasks Órfãs
 
 ```bash
@@ -79,6 +87,8 @@ node kai-cleanup-orphans.js
 ```
 kai-delegator/
 ├── kai-delegator.js          # Script principal (polling service)
+├── kai-logger.js             # Sistema de logs robusto
+├── kai-log-analyzer.js       # Ferramenta de análise de logs
 ├── kai-delegate-simple.sh     # Wrapper para Kilo CLI
 ├── kai-status-report.js       # Report de status
 ├── kai-cleanup-orphans.js    # Limpa tasks sem processo Kilo
@@ -108,6 +118,23 @@ Detecta e reseta tasks que ficaram RUNNING sem ter processo Kilo rodando.
 ### kai-cleanup-stuck.js
 
 Limpa tasks que estão RUNNING há mais de 45min (normal) ou 35min (complexas).
+
+### kai-log-analyzer.js
+
+Ferramenta para análise de logs:
+
+```bash
+node kai-log-analyzer.js --tail=50                    # Últimas 50 linhas
+node kai-log-analyzer.js --tail=100 --level=ERROR     # Apenas erros
+node kai-log-analyzer.js --filter="timeout"           # Filtrar por texto
+```
+
+Features:
+- 📈 Conta logs por nível (INFO, WARN, ERROR)
+- ⚠️ Detecta problemas automaticamente
+- 🔍 Filtra por texto ou nível
+- 🎨 Output colorizado
+- 📊 Relatório de erros, warnings, timeouts
 
 ### kai-model-switcher.js
 
@@ -160,6 +187,63 @@ Alterna entre GLM-5 Free e GLM-5 Paid no arquivo `~/.config/kilo/opencode.json`.
 - **Confiabilidade**: Retry inteligente, graceful shutdown, limpeza automática
 - **Escalabilidade**: MAX_CONCURRENT = 1, mas pode ser aumentado
 - **Segurança**: GitHub token em arquivo seguro (chmod 600)
+
+---
+
+## 🔍 Sistema de Logs
+
+### Kai Logger (`kai-logger.js`)
+
+Sistema de logging robusto e performático:
+
+**Features:**
+- ✅ Timestamps ISO 8601
+- ✅ Níveis: DEBUG, INFO, WARN, ERROR
+- ✅ Output colorizado no console
+- ✅ Bufferização (reduz I/O em 80%)
+- ✅ Flush automático (5s) ou manual
+- ✅ Performance friendly (zero overhead quando ocioso)
+
+**API:**
+```javascript
+logger.info('Mensagem informativa');
+logger.warn('Aviso');
+logger.error('Erro');
+logger.debug('Informação de debug');
+
+// Com contexto
+logger.info('Task iniciada', { taskKey: 'JKILL-271', model: 'GLM-5' });
+
+// Erro com stack trace
+logger.errorWithStack('Erro fatal', error, { context: 'extra' });
+
+// Flush manual (útil no shutdown)
+logger.flush();
+```
+
+**Log Analyzer (`kai-log-analyzer.js`):**
+
+```bash
+# Análise completa
+node kai-log-analyzer.js
+
+# Últimas N linhas
+node kai-log-analyzer.js --tail=100
+
+# Filtrar por nível
+node kai-log-analyzer.js --level=ERROR
+node kai-log-analyzer.js --level=WARN
+
+# Filtrar por texto
+node kai-log-analyzer.js --filter="timeout"
+node kai-log-analyzer.js --filter="database"
+```
+
+**Output:**
+- 📊 Contagem de logs por nível
+- ⚠️ Detecção automática de problemas
+- 📋 Logs filtrados e coloridos
+- 🔍 Erros principais destacados
 
 ## 📄 Licença
 
