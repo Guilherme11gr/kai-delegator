@@ -136,6 +136,16 @@ Features:
 - 🎨 Output colorizado
 - 📊 Relatório de erros, warnings, timeouts
 
+### kai-cleanup-duplicates.js
+
+Remove KaiCommands duplicadas para a mesma task, mantendo apenas uma (prioriza RUNNING, depois a mais antiga).
+
+```bash
+node kai-cleanup-duplicates.js
+# ou
+npm run cleanup-duplicates
+```
+
 ### kai-model-switcher.js
 
 Alterna entre GLM-5 Free e GLM-5 Paid no arquivo `~/.config/kilo/opencode.json`.

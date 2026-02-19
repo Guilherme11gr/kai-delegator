@@ -8,7 +8,12 @@
     "status": "node kai-status-report.js",
     "cleanup": "node kai-cleanup-orphans.js",
     "cleanup-stuck": "node kai-cleanup-stuck.js",
-    "switch-model": "node kai-model-switcher.js"
+    "cleanup-duplicates": "node dist/cli.js",
+    "switch-model": "node kai-model-switcher.js",
+    "build": "npx tsc",
+    "typecheck": "npx tsc --noEmit",
+    "lint": "npx eslint src/**/*.ts",
+    "test": "npx jest"
   },
   "keywords": [
     "kai",
@@ -25,7 +30,17 @@
     "@octokit/rest": "^20.0.2",
     "dotenv": "^16.3.1"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
+    "eslint": "^10.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3"
+  },
   "engines": {
     "node": ">=18.0.0"
   }
