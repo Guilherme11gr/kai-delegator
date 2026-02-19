@@ -158,6 +158,25 @@ else
   git commit --allow-empty -m "Kai-${TASK_READABLE_ID}: ${TASK_TITLE}"
 fi
 
+# VERIFICAÇÃO DE SEGURANÇA: BLOQUEAR PUSH PARA MAIN
+echo "🔒 Verificando segurança antes do push..."
+CURRENT_BRANCH=$(git branch --show-current)
+
+if [ "$CURRENT_BRANCH" == "main" ]; then
+    echo ""
+    echo -e "${RED}❌❌❌ ERRO CRÍTICO DE SEGURANÇA ❌❌❌${NC}"
+    echo -e "${RED}🚫 Tentando fazer push para branch MAIN!${NC}"
+    echo -e "${RED}🚫 Isso afetaria PRODUÇÃO (agenda-aqui.com)${NC}"
+    echo -e "${RED}🚫 Operação CANCELADA por segurança${NC}"
+    echo ""
+    echo -e "${YELLOW}📍 Branch atual: ${CURRENT_BRANCH}${NC}"
+    echo -e "${YELLOW}📍 Branch esperada: kai/*${NC}"
+    echo ""
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Segurança OK: Branch atual é ${CURRENT_BRANCH}${NC}"
+
 # Pushar branch
 echo "🚀 Pushando branch..."
 git push -u origin "$BRANCH_NAME"
