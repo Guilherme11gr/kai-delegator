@@ -17,6 +17,7 @@ Delegar tasks de desenvolvimento automaticamente para o Kilo Code, criando PRs n
 - ✅ **Quality gates**: typecheck (obrigatório), lint (aviso), build (obrigatório)
 - ✅ **Reports automáticos**: Telegram com status e links dos PRs
 - ✅ **Otimizações de performance**: Cache, delays, retry, graceful shutdown
+- ✅ **Prevenção de duplicatas**: Verifica KaiCommand existente antes de processar
 
 ## 📦 Instalação
 
@@ -144,6 +145,39 @@ Remove KaiCommands duplicadas para a mesma task, mantendo apenas uma (prioriza R
 node kai-cleanup-duplicates.js
 # ou
 npm run cleanup-duplicates
+```
+
+### Prevenção de Duplicatas (KAIDE-6)
+
+O sistema previne a criação de KaiCommands duplicadas para a mesma task:
+
+**Lógica de verificação:**
+- Se KaiCommand existe com status `FAILED` ou `PENDING`: reutiliza o existente
+- Se KaiCommand existe com status `COMPLETED` ou `RUNNING`: não cria novo
+
+**API TypeScript:**
+
+```typescript
+import {
+  checkExistingKaiCommand,
+  findAndCheckExistingCommand,
+  ExistingCommandAction,
+} from './check-existing-command';
+
+// Verificar comando existente
+const result = checkExistingKaiCommand(existingCommand);
+
+switch (result.action) {
+  case ExistingCommandAction.CREATE_NEW:
+    // Criar novo KaiCommand
+    break;
+  case ExistingCommandAction.UPDATE_EXISTING:
+    // Atualizar existente para RUNNING
+    break;
+  case ExistingCommandAction.SKIP:
+    // Não criar novo
+    break;
+}
 ```
 
 ### kai-model-switcher.js

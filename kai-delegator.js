@@ -141,6 +141,24 @@ async function getRunningCount() {
   return count;
 }
 
+const BLOCKING_STATUSES = [STATUS.COMPLETED, STATUS.RUNNING];
+const REUSABLE_STATUSES = [STATUS.FAILED, STATUS.PENDING];
+
+async function checkExistingKaiCommand(taskId) {
+  const existing = await withRetry(
+    () => prisma.kaiCommand.findFirst({
+      where: {
+        taskId,
+        status: { in: BLOCKING_STATUSES }
+      },
+      select: { id: true, status: true }
+    }),
+    { operationName: `Verificar KaiCommand existente para task ${taskId}`, silent: true }
+  );
+  
+  return existing;
+}
+
 async function fetchPendingCommands() {
   try {
     const runningCount = await getRunningCount();
@@ -177,7 +195,19 @@ async function fetchPendingCommands() {
 
     if (commands.length === 0) return { commands: [], runningCount, slotsAvailable };
 
-    const prioritized = commands.sort((a, b) => {
+    const filteredCommands = [];
+    for (const cmd of commands) {
+      const existing = await checkExistingKaiCommand(cmd.taskId);
+      if (existing) {
+        logger.info(`Task ${cmd.taskId}: KaiCommand ${existing.status} já existe, pulando duplicata`);
+        continue;
+      }
+      filteredCommands.push(cmd);
+    }
+
+    if (filteredCommands.length === 0) return { commands: [], runningCount, slotsAvailable };
+
+    const prioritized = filteredCommands.sort((a, b) => {
       const aIsSimple = isSimpleTask(a.task.title);
       const bIsSimple = isSimpleTask(b.task.title);
       if (aIsSimple !== bIsSimple) return aIsSimple ? -1 : 1;
