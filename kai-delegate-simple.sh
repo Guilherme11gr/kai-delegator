@@ -79,7 +79,8 @@ fi
 
 # CRIAR BRANCH IMEDIATAMENTE (antes de qualquer outra coisa)
 echo "🌿 Criando branch: ${BRANCH_NAME}"
-git checkout -b "$BRANCH_NAME" || { git branch "$BRANCH_NAME" && git checkout "$BRANCH_NAME"; }
+# Tenta checkout se existe, senão cria
+git checkout "$BRANCH_NAME" 2>/dev/null || git checkout -b "$BRANCH_NAME"
 
 # Criar diretório de histórico para streaming
 HISTORY_DIR="/workspace/main/.kai-history"
