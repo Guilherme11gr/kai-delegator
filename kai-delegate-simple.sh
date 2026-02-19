@@ -121,7 +121,7 @@ echo -e "${YELLOW}Task: ${TASK_READABLE_ID} - ${TASK_TITLE}${NC}"
 echo -e "${YELLOW}Session ID: ${SESSION_ID}${NC}"
 
 # Executar Kilo CLI com streaming e capturar output
-npx @kilocode/cli run --auto --model kilo/arcee-ai/trinity-large-preview:free "$PROMPT" 2>&1 | tee "$SESSION_FILE"
+npx @kilocode/cli run --auto --model kilo/z-ai/glm-5:free "$PROMPT" 2>&1 | tee "$SESSION_FILE"
 
 echo -e "${GREEN}✅ Kilo CLI concluído!${NC}"
 echo -e "${GREEN}📝 Histórico salvo em: ${SESSION_FILE}${NC}"
