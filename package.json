@@ -1,0 +1,32 @@
+{
+  "name": "kai-delegator",
+  "version": "1.0.0",
+  "description": "CLI para delegação automática de tasks para Kilo Code",
+  "main": "kai-delegator.js",
+  "scripts": {
+    "start": "node kai-delegator.js",
+    "status": "node kai-status-report.js",
+    "cleanup": "node kai-cleanup-orphans.js",
+    "cleanup-stuck": "node kai-cleanup-stuck.js",
+    "switch-model": "node kai-model-switcher.js"
+  },
+  "keywords": [
+    "kai",
+    "delegator",
+    "cli",
+    "automation",
+    "kilo-code",
+    "github",
+    "pr"
+  ],
+  "author": "Guilherme Revoredo",
+  "license": "MIT",
+  "dependencies": {
+    "@octokit/rest": "^20.0.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
