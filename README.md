@@ -18,6 +18,7 @@ Delegar tasks de desenvolvimento automaticamente para o Kilo Code, criando PRs n
 - ✅ **Reports automáticos**: Telegram com status e links dos PRs
 - ✅ **Otimizações de performance**: Cache, delays, retry, graceful shutdown
 - ✅ **Prevenção de duplicatas**: Verifica KaiCommand existente antes de processar
+- ✅ **Health Check de Processos**: Monitora processos Kilo CLI, mata processos travados
 
 ## 📦 Instalação
 
@@ -182,7 +183,86 @@ switch (result.action) {
 
 ### kai-model-switcher.js
 
-Alterna entre GLM-5 Free e GLM-5 Paid no arquivo `~/.config/kilo/opencode.json`.
+Altera entre GLM-5 Free e GLM-5 Paid no arquivo `~/.config/kilo/opencode.json`.
+
+## 🏥 Health Check de Processos (KAIDE-5)
+
+O sistema inclui um health monitor que verifica processos Kilo CLI a cada 5 minutos e mata processos travados automaticamente.
+
+### Funcionalidades
+
+- ✅ Verificação a cada 5 minutos usando PID
+- ✅ Timeout diferenciado: 35min (normal) / 25min (complexas)
+- ✅ Watchdog de CPU/Memory
+- ✅ Kill automático com SIGTERM → SIGKILL
+- ✅ Callback para atualização de status
+
+### Tasks Complexas
+
+Tasks com as seguintes palavras-chave são consideradas complexas (timeout 25min):
+- `database`, `function`, `api`, `integration`
+- `supabase`, `pool`, `migration`, `refactor`, `backend`
+
+### API TypeScript
+
+```typescript
+import {
+  createProcessHealthMonitor,
+  ProcessHealthMonitor,
+  ProcessInfo,
+  HealthCheckResult,
+} from './process-health-monitor';
+
+// Criar monitor com config customizada
+const monitor = createProcessHealthMonitor({
+  checkIntervalMs: 5 * 60 * 1000,      // Verificar a cada 5 min
+  normalTimeoutMs: 35 * 60 * 1000,     // 35 min para tasks normais
+  complexTimeoutMs: 25 * 60 * 1000,    // 25 min para tasks complexas
+  maxCpuPercent: 95,                    // Alerta se CPU > 95%
+  maxMemoryMB: 2048,                    // Alerta se memória > 2GB
+});
+
+// Registrar processo
+monitor.registerProcess(pid, 'TEST-1', 'cmd-123', 'Task title');
+
+// Callback quando processo é morto
+monitor.setOnKillCallback(async (commandId, reason) => {
+  console.log(`Process ${commandId} killed: ${reason}`);
+  // Atualizar status no banco para FAILED
+});
+
+// Iniciar monitoramento
+monitor.start();
+
+// Parar monitoramento
+monitor.stop();
+
+// Verificar saúde de um processo específico
+const result = await monitor.checkProcessHealth(processInfo);
+console.log(result.action);  // 'none' | 'kill' | 'warn'
+console.log(result.reason);  // Motivo da ação
+```
+
+### Exemplo de Uso
+
+```typescript
+// No kai-delegator.js
+const { createProcessHealthMonitor } = require('./dist/process-health-monitor');
+
+const healthMonitor = createProcessHealthMonitor();
+
+healthMonitor.setOnKillCallback(async (commandId, reason) => {
+  await prisma.kaiCommand.update({
+    where: { id: commandId },
+    data: {
+      status: 'FAILED',
+      output: `Process killed: ${reason}`,
+    },
+  });
+});
+
+healthMonitor.start();
+```
 
 ## 🎨 Como Funciona
 

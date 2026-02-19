@@ -1,9 +1,10 @@
 const path = require('path');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const fs = require('fs');
 const dotenv = require('dotenv');
 const { Octokit } = require('@octokit/rest');
 const logger = require('./kai-logger');
+const { createProcessHealthMonitor } = require('./dist/process-health-monitor');
 
 const envPath = path.join('/workspace/repos/jt-kill/.env.local');
 dotenv.config({ path: envPath });
@@ -87,6 +88,25 @@ let modelAlternator = 0;
 let isShuttingDown = false;
 let runningCountCache = { count: 0, timestamp: 0 };
 let configCache = null;
+
+const healthMonitor = createProcessHealthMonitor({
+  checkIntervalMs: 5 * 60 * 1000,
+  normalTimeoutMs: 35 * 60 * 1000,
+  complexTimeoutMs: 25 * 60 * 1000,
+});
+
+healthMonitor.setOnKillCallback(async (commandId, reason) => {
+  logger.warn(`Health monitor killing process: ${commandId} - ${reason}`);
+  try {
+    await updateCommandStatus(commandId, {
+      status: STATUS.FAILED,
+      output: `Process killed by health monitor: ${reason}`,
+      resultSummary: 'FAILED - Process stuck or unresponsive',
+    });
+  } catch (err) {
+    logger.error(`Failed to update status for killed process ${commandId}: ${err.message}`);
+  }
+});
 
 let octokitInstance = null;
 function getOctokit() {
@@ -331,14 +351,50 @@ function shouldAutoRetry(output, resultSummary) {
   return isTransient && !isBuildError;
 }
 
-function execCommand(scriptPath, taskKey) {
+function execCommand(scriptPath, taskKey, commandId, taskTitle) {
   return new Promise((resolve) => {
-    exec(`bash ${scriptPath} ${taskKey}`, {
+    const childProcess = spawn('bash', [scriptPath, taskKey], {
       cwd: '/workspace/main',
-      timeout: CONFIG.EXEC_TIMEOUT_MS,
-      env: { ...process.env, PATH: process.env.PATH }
-    }, (error, stdout, stderr) => {
-      resolve({ stdout, stderr, error });
+      env: { ...process.env, PATH: process.env.PATH },
+      detached: false,
+    });
+
+    const pid = childProcess.pid;
+    if (pid) {
+      healthMonitor.registerProcess(pid, taskKey, commandId, taskTitle);
+    }
+
+    let stdout = '';
+    let stderr = '';
+    let timeoutId = null;
+
+    timeoutId = setTimeout(() => {
+      childProcess.kill('SIGKILL');
+      stderr += '\nProcess killed due to timeout';
+    }, CONFIG.EXEC_TIMEOUT_MS);
+
+    childProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    childProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    childProcess.on('close', (code) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      healthMonitor.unregisterProcess(commandId);
+      resolve({
+        stdout,
+        stderr,
+        error: code !== 0 ? new Error(`Process exited with code ${code}`) : null,
+      });
+    });
+
+    childProcess.on('error', (err) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      healthMonitor.unregisterProcess(commandId);
+      resolve({ stdout, stderr, error: err });
     });
   });
 }
@@ -357,7 +413,7 @@ async function executeDelegation(command) {
     await updateCommandStatus(commandId, { status: STATUS.RUNNING, branchName });
     await alternateModel();
 
-    const { stdout, stderr, error: execError } = await execCommand(CONFIG.SCRIPT_PATH, taskKey);
+    const { stdout, stderr, error: execError } = await execCommand(CONFIG.SCRIPT_PATH, taskKey, commandId, task.title);
     
     const historyPath = path.join('/workspace/main/.kai-history', `${taskKey}.txt`);
     let output = '';
@@ -452,6 +508,7 @@ async function executeDelegation(command) {
 
 async function main() {
   logger.info('Kai Delegator iniciado (optimized)');
+  healthMonitor.start();
 
   while (!isShuttingDown) {
     try {
@@ -487,6 +544,7 @@ async function gracefulShutdown(signal) {
   isShuttingDown = true;
   
   logger.info(`Recebido ${signal}, encerrando...`);
+  healthMonitor.stop();
   
   if (activeDelegations.size > 0) {
     try {
