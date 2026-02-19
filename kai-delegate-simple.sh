@@ -7,6 +7,7 @@
 set -e
 
 # Cores
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
@@ -76,9 +77,9 @@ else
   cd "$REPO_PATH"
 fi
 
-# Criar branch para task
+# CRIAR BRANCH IMEDIATAMENTE (antes de qualquer outra coisa)
 echo "🌿 Criando branch: ${BRANCH_NAME}"
-git checkout -b "$BRANCH_NAME" || git branch "$BRANCH_NAME" && git checkout "$BRANCH_NAME"
+git checkout -b "$BRANCH_NAME" || { git branch "$BRANCH_NAME" && git checkout "$BRANCH_NAME"; }
 
 # Criar diretório de histórico para streaming
 HISTORY_DIR="/workspace/main/.kai-history"
@@ -102,6 +103,15 @@ Ao final, execute:
 
 Faça as alterações necessárias e verifique se tudo funciona corretamente."
 
+# Verificar branch atual ANTES de executar Kilo CLI
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
+  echo -e "${RED}❌ ERRO CRÍTICO: Não estamos na branch $BRANCH_NAME!${NC}"
+  echo "   Branch atual: $CURRENT_BRANCH"
+  exit 1
+fi
+echo -e "${GREEN}✅ Branch confirmada: $BRANCH_NAME${NC}"
+
 # Executar Kilo CLI e capturar output
 cd "$REPO_PATH"
 
@@ -116,8 +126,20 @@ npx @kilocode/cli run --auto --model kilo/arcee-ai/trinity-large-preview:free "$
 echo -e "${GREEN}✅ Kilo CLI concluído!${NC}"
 echo -e "${GREEN}📝 Histórico salvo em: ${SESSION_FILE}${NC}"
 
+# Verificar se há mudanças na branch vs main
+echo "🔍 Verificando mudanças vs main..."
+git fetch origin main
+CHANGES=$(git diff origin/main...HEAD --stat 2>/dev/null | wc -l)
+if [ "$CHANGES" -eq 0 ]; then
+  echo -e "${RED}❌ ERRO CRÍTICO: Branch kai/ não tem mudanças únicas!${NC}"
+  echo -e "${RED}   Kilo CLI commitou na main em vez de criar mudanças na branch.${NC}"
+  echo -e "${RED}   PRECISA CORRIGIR O FLUXO DO SCRIPT!${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ $CHANGES arquivos alterados encontrados${NC}"
+
 # Verificar se houve mudanças e commitar
-echo "🔍 Verificando mudanças..."
+echo "🔍 Verificando mudanças locais..."
 
 # Desabilitar pre-commit hook temporariamente
 echo "🔧 Desabilitando pre-commit hook..."
