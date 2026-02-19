@@ -434,6 +434,151 @@ logger.errorWithStack('Erro fatal', error, { context: 'extra' });
 logger.flush();
 ```
 
+### Structured Logger (KAIDE-7)
+
+Sistema de logging estruturado com timestamps, task IDs, fases e tempo decorrido:
+
+**Features:**
+- ✅ Timestamps ISO 8601 em todos os logs
+- ✅ Task ID em todos os logs
+- ✅ Fases: START, RUNNING, BUILD, PR, COMPLETED, FAILED
+- ✅ Tempo decorrido de cada fase
+- ✅ Stack trace completo em erros
+- ✅ Formato JSON para fácil parsing
+
+**Fases disponíveis:**
+| Fase | Descrição |
+|------|-----------|
+| `START` | Início de uma task |
+| `RUNNING` | Task em execução |
+| `BUILD` | Execução do build |
+| `PR` | Criação de Pull Request |
+| `COMPLETED` | Task finalizada com sucesso |
+| `FAILED` | Task falhou |
+
+**API TypeScript:**
+```typescript
+import {
+  StructuredLogger,
+  LogLevel,
+  LogPhase,
+  createStructuredLogger,
+  getStructuredLogger,
+} from './structured-logger';
+
+const logger = createStructuredLogger({
+  logFile: '/path/to/logs.json',
+  minLevel: LogLevel.INFO,
+});
+
+// Log com fase
+logger.info(LogPhase.START, 'KAIDE-1', 'Iniciando task', { priority: 'high' });
+
+// Conveniência: métodos por fase
+logger.start('KAIDE-1', 'Iniciando task');
+logger.running('KAIDE-1', 'Executando Kilo CLI');
+logger.build('KAIDE-1', 'Rodando typecheck e build');
+logger.pr('KAIDE-1', 'Criando Pull Request', { prUrl: 'https://github.com/...' });
+
+// Completed inclui tempo decorrido automaticamente
+logger.completed('KAIDE-1', 'Task finalizada', { filesChanged: 5 });
+
+// Failed inclui tempo decorrido e stack trace
+logger.failed('KAIDE-1', 'Task falhou', new Error('Build failed'), { exitCode: 1 });
+
+// Log de erro com stack trace completo
+logger.logError(
+  LogLevel.ERROR,
+  LogPhase.BUILD,
+  'KAIDE-1',
+  'Build failed',
+  new Error('TypeScript error'),
+  { file: 'src/index.ts' }
+);
+```
+
+**API JavaScript (kai-logger.js):**
+```javascript
+const logger = require('./kai-logger');
+
+// Métodos de conveniência
+logger.start('KAIDE-1', 'Iniciando task');
+logger.running('KAIDE-1', 'Executando');
+logger.build('KAIDE-1', 'Build iniciado');
+logger.pr('KAIDE-1', 'PR criado');
+logger.completed('KAIDE-1', 'Finalizado');
+logger.failed('KAIDE-1', 'Falhou', new Error('Erro'));
+
+// Acesso ao structured logger
+logger.logStructured(
+  logger.LogLevel.INFO,
+  logger.LogPhase.START,
+  'KAIDE-1',
+  'Mensagem',
+  { metadata: 'value' }
+);
+```
+
+**Formato JSON (para parsing):**
+```json
+{
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "level": "INFO",
+  "phase": "COMPLETED",
+  "taskId": "KAIDE-7",
+  "message": "Task finalizada com sucesso",
+  "elapsedMs": 12345,
+  "metadata": {
+    "filesChanged": 5,
+    "prUrl": "https://github.com/org/repo/pull/123"
+  }
+}
+```
+
+**Log de erro com stack trace:**
+```json
+{
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "level": "ERROR",
+  "phase": "FAILED",
+  "taskId": "KAIDE-7",
+  "message": "Build failed",
+  "elapsedMs": 5000,
+  "error": {
+    "name": "Error",
+    "message": "TypeScript compilation failed",
+    "stack": "Error: TypeScript compilation failed\n    at build (src/build.ts:42)\n    at async run (src/index.ts:15)"
+  },
+  "metadata": {
+    "exitCode": 1
+  }
+}
+```
+
+**Parsing de logs:**
+```bash
+# Filtrar por task ID
+cat kai-delegator-structured.log | jq 'select(.taskId == "KAIDE-7")'
+
+# Filtrar por fase
+cat kai-delegator-structured.log | jq 'select(.phase == "FAILED")'
+
+# Filtrar erros
+cat kai-delegator-structured.log | jq 'select(.level == "ERROR")'
+
+# Calcular tempo médio de execução
+cat kai-delegator-structured.log | jq 'select(.elapsedMs != null) | .elapsedMs' | awk '{sum+=$1; count++} END {print "Avg:", sum/count, "ms"}'
+```
+
+**Variáveis de ambiente:**
+```bash
+# Nível de log mínimo
+export KAI_LOG_LEVEL=DEBUG  # DEBUG, INFO, WARN, ERROR
+
+# Desabilitar logs estruturados
+export KAI_STRUCTURED_LOGS=false
+```
+
 **Log Analyzer (`kai-log-analyzer.js`):**
 
 ```bash

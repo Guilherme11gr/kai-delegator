@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -96,71 +96,71 @@
 <a name='L31'></a><a href='#L31'>31</a>
 <a name='L32'></a><a href='#L32'>32</a>
 <a name='L33'></a><a href='#L33'>33</a>
-<a name='L34'></a><a href='#L34'>34</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L34'></a><a href='#L34'>34</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export const <span class="cstat-no" title="statement not covered" >MODELS = {</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export const MODELS = {
   FREE: 'kilo/z-ai/glm-5:free',
   PAID: 'glm-5',
 } as const;
 &nbsp;
 export type ModelType = typeof MODELS[keyof typeof MODELS];
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export class M</span>odelAlternator {
-  private alternator: number = <span class="cstat-no" title="statement not covered" >0;</span>
+export class ModelAlternator {
+  private alternator: number = 0;
 &nbsp;
-<span class="fstat-no" title="function not covered" >  getNextModelIndex(</span>): number {
-    const current = <span class="cstat-no" title="statement not covered" >this.alternator;</span>
-<span class="cstat-no" title="statement not covered" >    this.alternator = (this.alternator + 1) % 2;</span>
-<span class="cstat-no" title="statement not covered" >    return current;</span>
+  getNextModelIndex(): number {
+    const current = this.alternator;
+    this.alternator = (this.alternator + 1) % 2;
+    return current;
   }
 &nbsp;
-<span class="fstat-no" title="function not covered" >  getNextModel(</span>): ModelType {
-    const modelIndex = <span class="cstat-no" title="statement not covered" >this.getNextModelIndex();</span>
-<span class="cstat-no" title="statement not covered" >    return modelIndex === 0 ? MODELS.FREE : MODELS.PAID;</span>
+  getNextModel(): ModelType {
+    const modelIndex = this.getNextModelIndex();
+    return modelIndex === 0 ? MODELS.FREE : MODELS.PAID;
   }
 &nbsp;
-<span class="fstat-no" title="function not covered" >  getCurrentModelIndex(</span>): number {
-<span class="cstat-no" title="statement not covered" >    return this.alternator;</span>
+  getCurrentModelIndex(): number {
+    return this.alternator;
   }
 &nbsp;
-<span class="fstat-no" title="function not covered" >  reset(</span>): void {
-<span class="cstat-no" title="statement not covered" >    this.alternator = 0;</span>
+  reset(): void {
+    this.alternator = 0;
   }
 }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >c</span>reateModelAlternator(</span>): ModelAlternator {
-<span class="cstat-no" title="statement not covered" >  return new ModelAlternator();</span>
+export function createModelAlternator(): ModelAlternator {
+  return new ModelAlternator();
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -169,7 +169,7 @@ export type ModelType = typeof MODELS[keyof typeof MODELS];
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-19T14:14:21.205Z
+                at 2026-02-19T16:46:52.967Z
             </div>
         <script src="prettify.js"></script>
         <script>
