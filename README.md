@@ -182,6 +182,80 @@ Alterna entre GLM-5 Free e GLM-5 Paid no arquivo `~/.config/kilo/opencode.json`.
 9. Atualiza status (COMPLETED/FAILED)
 ```
 
+## 🤖 CodingAgent Interface
+
+A interface `CodingAgent` permite fácil troca de CLIs (Kilo, Bolt, Codeium, etc.).
+
+### Interface
+
+```typescript
+interface CodingAgent {
+  readonly name: string;
+  execute(task: TaskInfo): Promise<ExecutionResult>;
+  healthCheck(): Promise<HealthCheckResult>;
+  getStatus(): Promise<CodingAgentStatus>;
+  getName(): string;
+  configure(config: Partial<CodingAgentConfig>): void;
+}
+```
+
+### Uso
+
+```typescript
+import { createCodingAgent, registerAgent } from './coding-agent-factory';
+
+// Usar o agente padrão (Kilo)
+const agent = createCodingAgent('kilo');
+
+// Verificar saúde
+const health = await agent.healthCheck();
+
+// Executar task
+const result = await agent.execute({
+  taskId: '123',
+  taskKey: 'KAIDE-1',
+  title: 'Implement feature',
+  projectKey: 'KAIDE',
+  repoUrl: 'https://github.com/org/repo',
+  branchName: 'kai/KAIDE-1',
+});
+```
+
+### Registrar novo agente
+
+```typescript
+import { registerAgent, CodingAgent } from './coding-agent-factory';
+
+class MyCustomAgent implements CodingAgent {
+  readonly name = 'my-custom';
+  // ... implementar métodos
+}
+
+registerAgent('my-custom', () => new MyCustomAgent());
+```
+
+### Configuração
+
+```typescript
+const agent = createCodingAgentFromConfig({
+  defaultAgent: 'kilo',
+  agents: {
+    kilo: {
+      timeoutMs: 300000,
+      maxOutputSize: 50000,
+    },
+  },
+});
+```
+
+### Agentes disponíveis
+
+| Agente | Status | Descrição |
+|--------|--------|-----------|
+| `kilo` | ✅ Disponível | Kilo CLI (padrão) |
+| `bolt` | 🚧 Planejado | Bolt CLI |
+| `codeium` | 🚧 Planejado | Codeium CLI |
+
 ## 🚧 Roadmap
 
 - [ ] Refatorar CLI em Rust (performance máxima)
@@ -190,6 +264,7 @@ Alterna entre GLM-5 Free e GLM-5 Paid no arquivo `~/.config/kilo/opencode.json`.
 - [ ] Webhooks para notificações
 - [ ] Suporte a múltiplos projetos
 - [ ] Configuração via arquivo TOML/YAML
+- [x] Interface CodingAgent para troca de CLIs
 
 ## 📝 Notas
 
